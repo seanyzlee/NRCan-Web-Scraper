@@ -1,0 +1,178 @@
+{% extends "base.html" %}
+{% block title %}Settings — NRCan Article Monitor{% endblock %}
+
+{% block content %}
+<div class="container py-4" style="max-width:900px;">
+  <div class="d-flex align-items-center gap-3 mb-4">
+    <a href="{{ url_for('index') }}" class="btn btn-sm btn-outline-secondary">
+      <i class="bi bi-arrow-left me-1"></i>Back
+    </a>
+    <h4 class="mb-0">Settings</h4>
+  </div>
+
+  <form method="POST" action="{{ url_for('settings_save') }}">
+
+    <!-- ── Lookback period ────────────────────────────────────────── -->
+    <div class="card settings-card mb-4">
+      <div class="card-header settings-card-header">
+        <i class="bi bi-calendar-range me-2"></i>Lookback Period
+      </div>
+      <div class="card-body">
+        <p class="text-muted small mb-3">
+          How many days back to search for articles on each run.
+        </p>
+        <div class="d-flex gap-4 flex-wrap">
+          {% for days in [7, 14, 30] %}
+          <div class="form-check">
+            <input class="form-check-input" type="radio" name="lookback_days"
+                   id="days{{ days }}" value="{{ days }}"
+                   {% if cfg.lookback_days == days %}checked{% endif %}>
+            <label class="form-check-label" for="days{{ days }}">
+              {{ days }} days
+              {% if days == 7 %}(Weekly){% elif days == 14 %}(Biweekly){% else %}(Monthly){% endif %}
+            </label>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Keywords ──────────────────────────────────────────────── -->
+    <div class="card settings-card mb-4">
+      <div class="card-header settings-card-header">
+        <i class="bi bi-tags me-2"></i>Keywords
+        <span class="badge bg-secondary ms-2">{{ cfg.keywords|length }} active</span>
+      </div>
+      <div class="card-body">
+        <p class="text-muted small mb-3">
+          Articles must match at least one keyword. Uncheck to disable; the keyword
+          will be skipped without removing it from the default list.
+        </p>
+
+        {% set all_default_kws = [] %}
+        {% for group, kws in cfg.keyword_groups.items() %}
+          {% for kw in kws %}{% if all_default_kws.append(kw) %}{% endif %}{% endfor %}
+        {% endfor %}
+
+        {% for group, kws in cfg.keyword_groups.items() %}
+        <div class="mb-3">
+          <div class="kw-group-label">{{ group }}</div>
+          <div class="d-flex flex-wrap gap-2">
+            {% for kw in kws %}
+            <div class="form-check kw-chip">
+              <input class="form-check-input" type="checkbox"
+                     name="keywords_active" value="{{ kw }}" id="kw-{{ loop.index }}-{{ group|replace(' ','-') }}"
+                     {% if kw not in cfg.keywords_removed %}checked{% endif %}>
+              <label class="form-check-label" for="kw-{{ loop.index }}-{{ group|replace(' ','-') }}">
+                {{ kw }}
+              </label>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+        {% endfor %}
+
+        <hr>
+        <label class="form-label fw-semibold">Extra keywords (one per line)</label>
+        <textarea name="keywords_extra" class="form-control font-monospace"
+                  rows="4" placeholder="e.g.&#10;Trans Mountain&#10;Site C&#10;Enbridge Line 3">{{ cfg.keywords_extra|join('\n') }}</textarea>
+        <div class="form-text">These are added on top of the groups above.</div>
+      </div>
+    </div>
+
+    <!-- ── Sources ───────────────────────────────────────────────── -->
+    <div class="card settings-card mb-4">
+      <div class="card-header settings-card-header">
+        <i class="bi bi-globe me-2"></i>Sources
+        <span class="badge bg-secondary ms-2">
+          {{ cfg.all_sources|length - cfg.disabled_sources|length }} / {{ cfg.all_sources|length }} enabled
+        </span>
+      </div>
+      <div class="card-body">
+        <p class="text-muted small mb-3">
+          Uncheck sources to exclude them from future runs.
+        </p>
+
+        {% set ns = namespace(last_cat='') %}
+        {% for source in cfg.all_sources|sort(attribute='category') %}
+          {% if source.category != ns.last_cat %}
+            {% if ns.last_cat != '' %}</div>{% endif %}
+            <div class="kw-group-label mt-3">{{ source.category }}</div>
+            <div class="d-flex flex-wrap gap-2">
+            {% set ns.last_cat = source.category %}
+          {% endif %}
+          <div class="form-check source-chip">
+            <input class="form-check-input" type="checkbox"
+                   name="enabled_sources" value="{{ source.name }}"
+                   id="src-{{ loop.index }}"
+                   {% if source.name not in cfg.disabled_sources %}checked{% endif %}>
+            <label class="form-check-label" for="src-{{ loop.index }}">
+              {{ source.name }}
+              <span class="badge rounded-pill {% if source.type == 'rss' %}bg-success{% else %}bg-primary{% endif %} ms-1" style="font-size:.65rem;">
+                {{ source.type }}
+              </span>
+            </label>
+          </div>
+        {% endfor %}
+        </div>
+
+        <div class="mt-3 d-flex gap-2">
+          <button type="button" class="btn btn-sm btn-outline-secondary" onclick="toggleAll(true)">
+            Select all
+          </button>
+          <button type="button" class="btn btn-sm btn-outline-secondary" onclick="toggleAll(false)">
+            Deselect all
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Save -->
+    <div class="d-flex gap-3">
+      <button type="submit" class="btn btn-run">
+        <i class="bi bi-floppy me-1"></i>Save Settings
+      </button>
+      <a href="{{ url_for('index') }}" class="btn btn-outline-secondary">Cancel</a>
+    </div>
+
+  </form>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Build hidden inputs for keywords_removed on submit
+document.querySelector('form').addEventListener('submit', function(e) {
+  // Remove any stale hidden inputs
+  this.querySelectorAll('input[name="keywords_removed"]').forEach(el => el.remove());
+  this.querySelectorAll('input[name="disabled_sources"]').forEach(el => el.remove());
+
+  // keywords_removed = unchecked keyword checkboxes
+  this.querySelectorAll('input[name="keywords_active"]').forEach(cb => {
+    if (!cb.checked) {
+      const h = document.createElement('input');
+      h.type  = 'hidden';
+      h.name  = 'keywords_removed';
+      h.value = cb.value;
+      this.appendChild(h);
+    }
+  });
+
+  // disabled_sources = unchecked source checkboxes
+  this.querySelectorAll('input[name="enabled_sources"]').forEach(cb => {
+    if (!cb.checked) {
+      const h = document.createElement('input');
+      h.type  = 'hidden';
+      h.name  = 'disabled_sources';
+      h.value = cb.value;
+      this.appendChild(h);
+    }
+  });
+});
+
+function toggleAll(state) {
+  document.querySelectorAll('input[name="enabled_sources"]')
+    .forEach(cb => cb.checked = state);
+}
+</script>
+{% endblock %}

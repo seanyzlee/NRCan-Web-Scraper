@@ -1,0 +1,17 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+env/
+
+# Runtime data (stays on the server's persistent disk, not in git)
+seen_articles.db
+user_settings.json
+output/
+scraper.log*
+
+# OS
+.DS_Store
+Thumbs.db

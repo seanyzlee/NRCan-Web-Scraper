@@ -1,0 +1,158 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container-fluid px-4 pb-5">
+
+  <!-- ── Top bar ──────────────────────────────────────────────────── -->
+  <div class="d-flex flex-wrap align-items-center gap-3 py-3 border-bottom">
+
+    <!-- Run selector -->
+    <div class="d-flex align-items-center gap-2">
+      <label class="text-muted small fw-semibold text-nowrap" for="run-select">Run:</label>
+      <select id="run-select" class="form-select form-select-sm" style="max-width:280px;">
+        {% if not all_runs %}
+          <option>No runs yet</option>
+        {% endif %}
+        {% for r in all_runs %}
+          <option value="{{ r.run_id }}"
+            {% if r.run_id == run_id %}selected{% endif %}>
+            {{ r.started_at[:10] }}
+            {{ r.started_at[11:16] }} UTC —
+            {{ r.articles_found }} articles
+            {% if r.status == 'running' %}(running…){% endif %}
+          </option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <!-- Stats -->
+    <div class="text-muted small">
+      <span id="article-count" class="fw-bold text-dark">{{ articles|length }}</span> articles
+      {% if run_info and run_info.finished_at %}
+        &nbsp;·&nbsp; {{ run_info.finished_at[:10] }}
+      {% endif %}
+    </div>
+
+    <div class="ms-auto d-flex gap-2">
+      <!-- Download -->
+      {% if run_id and articles %}
+      <a href="{{ url_for('download_run', run_id=run_id) }}"
+         class="btn btn-sm btn-outline-secondary">
+        <i class="bi bi-file-earmark-excel me-1"></i>Download Excel
+      </a>
+      {% endif %}
+
+      <!-- Dedup toggle -->
+      <div class="form-check form-switch d-flex align-items-center mb-0 me-1"
+           title="When off, already-seen articles are fetched again">
+        <input class="form-check-input me-2" type="checkbox" role="switch"
+               id="dedup-toggle" checked style="cursor:pointer;">
+        <label class="form-check-label small text-muted text-nowrap" for="dedup-toggle">
+          Skip seen
+        </label>
+      </div>
+
+      <!-- Run Now -->
+      <button id="run-btn" class="btn btn-sm btn-run"
+              {% if is_running %}disabled{% endif %}>
+        <i class="bi bi-play-circle-fill me-1"></i>
+        {% if is_running %}Running…{% else %}Run Now{% endif %}
+      </button>
+    </div>
+  </div>
+
+  <!-- ── Filters ───────────────────────────────────────────────────── -->
+  <div class="d-flex flex-wrap gap-2 py-3">
+    <div class="input-group input-group-sm" style="max-width:300px;">
+      <span class="input-group-text"><i class="bi bi-search"></i></span>
+      <input id="search" type="search" class="form-control" placeholder="Search titles…">
+    </div>
+
+    <select id="cat-filter" class="form-select form-select-sm" style="max-width:180px;">
+      <option value="">All categories</option>
+      {% for c in categories %}
+        <option value="{{ c }}">{{ c }}</option>
+      {% endfor %}
+    </select>
+
+    <select id="src-filter" class="form-select form-select-sm" style="max-width:200px;">
+      <option value="">All sources</option>
+      {% for s in sources %}
+        <option value="{{ s }}">{{ s }}</option>
+      {% endfor %}
+    </select>
+
+    <button id="clear-btn" class="btn btn-sm btn-outline-secondary">
+      <i class="bi bi-x-circle me-1"></i>Clear
+    </button>
+  </div>
+
+  <!-- ── Articles table ────────────────────────────────────────────── -->
+  {% if not articles and not is_running %}
+  <div class="empty-state text-center py-5 text-muted">
+    <i class="bi bi-newspaper display-3 d-block mb-3 opacity-25"></i>
+    <h5>No articles yet</h5>
+    <p>Click <strong>Run Now</strong> to fetch articles from all configured sources.</p>
+    <button id="run-btn-empty" class="btn btn-run mt-2">
+      <i class="bi bi-play-circle-fill me-1"></i>Run Now
+    </button>
+  </div>
+  {% else %}
+  <div class="table-responsive">
+    <table class="table table-hover align-middle article-table">
+      <thead class="table-header">
+        <tr>
+          <th style="width:95px;">Date</th>
+          <th style="width:160px;">Source</th>
+          <th style="width:130px;">Category</th>
+          <th>Title &amp; Summary</th>
+        </tr>
+      </thead>
+      <tbody id="articles-tbody">
+        {% for a in articles %}
+        <tr data-category="{{ a.category }}" data-source="{{ a.source }}">
+          <td class="date-cell">{{ a.published or '—' }}</td>
+          <td>
+            <button class="source-pill" onclick="filterBySource('{{ a.source|replace("'", "\\'") }}')">
+              {{ a.source }}
+            </button>
+          </td>
+          <td>
+            <span class="cat-badge cat-{{ a.category|lower|replace(' ', '-') }}">
+              {{ a.category }}
+            </span>
+          </td>
+          <td>
+            <a href="{{ a.url }}" target="_blank" rel="noopener" class="article-link">
+              {{ a.title }}
+            </a>
+            {% if a.summary %}
+            <div class="summary-text">{{ a.summary[:160] }}{% if a.summary|length > 160 %}…{% endif %}</div>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <div id="no-results" class="d-none text-center py-4 text-muted">
+    <i class="bi bi-search me-2"></i>No articles match your filters.
+  </div>
+  {% endif %}
+
+</div>
+
+<!-- Hidden data for JS -->
+<script id="page-data" type="application/json">
+{
+  "runId":      {{ (run_id or '')|tojson }},
+  "isRunning":  {{ is_running|tojson }},
+  "currentRun": {{ (current_run or '')|tojson }}
+}
+</script>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='main.js') }}"></script>
+{% endblock %}

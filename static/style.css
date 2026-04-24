@@ -1,0 +1,206 @@
+/* =========================================================
+   NRCan Article Monitor — custom styles
+   ========================================================= */
+
+:root {
+  --gc-navy:  #26374A;
+  --gc-red:   #B10E1E;
+  --gc-light: #F5F5F5;
+  --gc-text:  #333333;
+  --gc-muted: #6c757d;
+  --border:   #dee2e6;
+}
+
+/* ── Base ─────────────────────────────────────────────────── */
+body {
+  background: var(--gc-light);
+  color: var(--gc-text);
+  font-size: .9rem;
+}
+
+/* ── Navbar ───────────────────────────────────────────────── */
+#main-nav {
+  background: var(--gc-navy);
+  border-bottom: 3px solid var(--gc-red);
+  padding-top: .6rem;
+  padding-bottom: .6rem;
+}
+
+#main-nav .navbar-brand {
+  font-size: 1rem;
+  letter-spacing: .02em;
+}
+
+/* ── Progress banner ─────────────────────────────────────── */
+#progress-banner {
+  background: #fff3cd;
+  border-bottom: 2px solid #ffc107;
+  padding: .75rem 1.5rem;
+  position: sticky;
+  top: 0;
+  z-index: 1040;
+}
+
+.progress-banner-inner {
+  max-width: 700px;
+}
+
+/* ── Run button ──────────────────────────────────────────── */
+.btn-run {
+  background: var(--gc-red);
+  border-color: var(--gc-red);
+  color: #fff;
+  font-weight: 600;
+}
+.btn-run:hover:not(:disabled) {
+  background: #8e0b17;
+  border-color: #8e0b17;
+  color: #fff;
+}
+.btn-run:disabled {
+  background: #c97d83;
+  border-color: #c97d83;
+  color: #fff;
+  cursor: not-allowed;
+}
+
+/* ── Article table ───────────────────────────────────────── */
+.article-table {
+  background: #fff;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 1px 4px rgba(0,0,0,.07);
+  font-size: .87rem;
+}
+
+.table-header th {
+  background: var(--gc-navy);
+  color: #fff;
+  font-weight: 600;
+  font-size: .8rem;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  border: none;
+  padding: .65rem 1rem;
+}
+
+.article-table tbody tr {
+  border-bottom: 1px solid #f0f0f0;
+  transition: background .12s;
+}
+.article-table tbody tr:last-child { border-bottom: none; }
+.article-table tbody tr:hover { background: #f0f4f9; }
+
+.article-table td { padding: .65rem 1rem; vertical-align: top; }
+
+.date-cell {
+  font-size: .78rem;
+  color: var(--gc-muted);
+  white-space: nowrap;
+  padding-top: .75rem !important;
+}
+
+.article-link {
+  color: var(--gc-navy);
+  font-weight: 500;
+  text-decoration: none;
+  line-height: 1.4;
+}
+.article-link:hover { color: var(--gc-red); text-decoration: underline; }
+
+.summary-text {
+  color: var(--gc-muted);
+  font-size: .8rem;
+  margin-top: .25rem;
+  line-height: 1.5;
+}
+
+/* ── Source pill ─────────────────────────────────────────── */
+.source-pill {
+  background: none;
+  border: 1px solid #cdd5df;
+  border-radius: 20px;
+  color: var(--gc-navy);
+  font-size: .75rem;
+  font-weight: 600;
+  padding: .2rem .65rem;
+  cursor: pointer;
+  transition: all .15s;
+  white-space: nowrap;
+}
+.source-pill:hover {
+  background: var(--gc-navy);
+  color: #fff;
+  border-color: var(--gc-navy);
+}
+
+/* ── Category badges ─────────────────────────────────────── */
+.cat-badge {
+  font-size: .72rem;
+  font-weight: 700;
+  padding: .25rem .55rem;
+  border-radius: 4px;
+  white-space: nowrap;
+  display: inline-block;
+  letter-spacing: .03em;
+  text-transform: uppercase;
+}
+
+.cat-newspaper      { background: #e3f2fd; color: #0d47a1; }
+.cat-news-network   { background: #fce4ec; color: #880e4f; }
+.cat-bank           { background: #e8f5e9; color: #1b5e20; }
+.cat-international-org { background: #fff3e0; color: #e65100; }
+.cat-central-bank   { background: #f3e5f5; color: #4a148c; }
+.cat-research       { background: #e0f7fa; color: #006064; }
+
+/* ── Empty state ─────────────────────────────────────────── */
+.empty-state { padding: 5rem 1rem; }
+
+/* ── Settings page ───────────────────────────────────────── */
+.settings-card {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0,0,0,.06);
+}
+
+.settings-card-header {
+  background: var(--gc-navy);
+  color: #fff;
+  font-weight: 600;
+  font-size: .9rem;
+  padding: .75rem 1.25rem;
+  border-radius: 7px 7px 0 0;
+}
+
+.kw-group-label {
+  font-size: .75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  color: var(--gc-muted);
+  margin-bottom: .5rem;
+}
+
+.kw-chip {
+  background: var(--gc-light);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: .2rem .7rem .2rem .5rem;
+  font-size: .82rem;
+  transition: background .12s;
+}
+.kw-chip:hover { background: #e9ecef; }
+
+.source-chip {
+  background: var(--gc-light);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: .25rem .75rem;
+  font-size: .82rem;
+}
+
+/* ── Scrollable table wrapper ────────────────────────────── */
+.table-responsive { border-radius: 8px; }
+
+/* ── Utility ─────────────────────────────────────────────── */
+tr.hidden { display: none; }
