@@ -275,6 +275,19 @@ tr.hidden { display: none; }
 .topic-conflict---security  { background: #fce4ec; color: #880e4f; }
 .topic-general              { background: #f3f3f3; color: #555; }
 
+/* ── Keyword match badges (Articles Monitor) ─────────────── */
+.kw-badge {
+  font-size: .67rem;
+  font-weight: 600;
+  padding: .12rem .42rem;
+  border-radius: 3px;
+  background: #eef2ff;
+  color: #3730a3;
+  border: 1px solid #c7d2fe;
+  white-space: nowrap;
+  letter-spacing: .02em;
+}
+
 /* ── Ticker pill ─────────────────────────────────────────── */
 .ticker-pill {
   background: #e8f0fe;

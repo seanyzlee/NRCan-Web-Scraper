@@ -45,14 +45,26 @@ REQUEST_DELAY   = 1.0
 # Keyword matching
 # ===========================================================================
 
+def _kw_pattern(kw: str) -> str:
+    # \b at both ends blocks substring matches (e.g. CER inside "bouncer").
+    # s?\b at the end also matches the plural form (pipelines, oil prices, …).
+    return r'\b' + re.escape(kw) + r's?\b'
+
+
 def build_pattern(keywords: list[str]) -> re.Pattern:
-    escaped = [re.escape(kw) for kw in keywords]
-    return re.compile("|".join(escaped), re.IGNORECASE)
+    return re.compile("|".join(_kw_pattern(kw) for kw in keywords), re.IGNORECASE)
 
 
 def matches(pattern: re.Pattern, *texts: str) -> bool:
     combined = " ".join(t for t in texts if t)
     return bool(pattern.search(combined))
+
+
+def find_matched_keywords(keywords: list[str], *texts: str) -> list[str]:
+    """Return the subset of keywords that appear in the combined texts."""
+    combined = " ".join(t for t in texts if t)
+    return [kw for kw in keywords
+            if re.search(_kw_pattern(kw), combined, re.IGNORECASE)]
 
 
 # ===========================================================================
@@ -85,21 +97,25 @@ def within_window(dt: Optional[datetime], cutoff: datetime) -> bool:
 # ===========================================================================
 
 def _build_row(source: dict, title: str, url: str,
-               pub_dt: Optional[datetime], summary: str) -> dict:
+               pub_dt: Optional[datetime], summary: str,
+               matched_kws: Optional[list] = None) -> dict:
     return {
         "Source":     source["name"],
         "Category":   source.get("category", ""),
         "Title":      title.strip(),
         "URL":        url.strip(),
         "Published":  pub_dt.strftime("%Y-%m-%d") if pub_dt else "",
-        "Summary":    _clean_html(summary)[:500],
+        "Summary":    summary[:500],   # caller is responsible for cleaning HTML
         "Scraped At": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC"),
+        "Keywords":   ", ".join(matched_kws) if matched_kws else "",
     }
 
 
 def _clean_html(text: str) -> str:
     if not text:
         return ""
+    if "<" not in text:   # already plain text — BeautifulSoup would warn
+        return text
     return BeautifulSoup(text, "lxml").get_text(separator=" ", strip=True)
 
 
@@ -107,7 +123,7 @@ def _clean_html(text: str) -> str:
 # RSS fetcher
 # ===========================================================================
 
-def fetch_rss(source: dict, cutoff: datetime, pattern: re.Pattern,
+def fetch_rss(source: dict, cutoff: datetime, pattern: re.Pattern, keywords: list[str],
               use_dedup: bool, seen_check: Callable, seen_mark: Callable) -> list[dict]:
     results = []
     for url in source["urls"]:
@@ -125,16 +141,23 @@ def fetch_rss(source: dict, cutoff: datetime, pattern: re.Pattern,
             if use_dedup and seen_check(article_url):
                 continue
 
-            title   = entry.get("title", "")
-            summary = entry.get("summary", "") or entry.get("description", "")
-            pub_dt  = parse_date(entry.get("published_parsed") or entry.get("updated_parsed"))
+            title       = entry.get("title", "")
+            summary_raw = entry.get("summary", "") or entry.get("description", "")
+            pub_dt      = parse_date(entry.get("published_parsed") or entry.get("updated_parsed"))
 
             if not within_window(pub_dt, cutoff):
                 continue
-            if not matches(pattern, title, summary):
+
+            # Clean HTML first, then match on title + opening 300 chars of article text.
+            # Sidebar/related-article links live deeper in the summary HTML and are excluded
+            # by the 300-char limit, preventing cross-topic false positives.
+            summary_clean = _clean_html(summary_raw)
+            if not matches(pattern, title, summary_clean[:300]):
                 continue
 
-            results.append(_build_row(source, title, article_url, pub_dt, summary))
+            matched_kws = find_matched_keywords(keywords, title, summary_clean[:300])
+            results.append(_build_row(source, title, article_url, pub_dt,
+                                      summary_clean, matched_kws))
             if use_dedup:
                 seen_mark(article_url)
 
@@ -183,47 +206,9 @@ def _parser(name: str):
     return decorator
 
 
-@_parser("rbc")
-def _rbc(soup, url): return _generic_links(soup, url, "h3 a, h2 a, .article-title a")
-
-@_parser("td")
-def _td(soup, url): return _generic_links(soup, url, "h3 a, h2 a, .publication-title a")
-
-@_parser("scotiabank")
-def _scotiabank(soup, url): return _generic_links(soup, url, "h3 a, h2 a, .pub-title a, a.pub-link")
-
-@_parser("bmo")
-def _bmo(soup, url): return _generic_links(soup, url, "h3 a, h2 a, article a")
-
-@_parser("cibc")
-def _cibc(soup, url): return _generic_links(soup, url, "h3 a, h2 a, .card-title a")
-
-@_parser("nbc")
-def _nbc(soup, url): return _generic_links(soup, url, "h3 a, h2 a, .article a")
-
-@_parser("iea")
-def _iea(soup, url): return _generic_links(soup, url, "h3 a, h2 a, .m-news-list__item a")
-
-@_parser("spglobal")
-def _spglobal(soup, url): return _generic_links(soup, url, "h3 a, h2 a, .cta-link, .article-title a")
-
-@_parser("woodmac")
-def _woodmac(soup, url): return _generic_links(soup, url, "h3 a, h2 a, .card__title a")
-
-@_parser("mckinsey")
-def _mckinsey(soup, url): return _generic_links(soup, url, "h3 a, h2 a, .article-link")
-
-@_parser("deloitte")
-def _deloitte(soup, url): return _generic_links(soup, url, "h3 a, h2 a, .article-title a")
-
-@_parser("goldman")
-def _goldman(soup, url): return _generic_links(soup, url, "h3 a, h2 a, .insight-card__title a")
-
-@_parser("signal49")
-def _signal49(soup, url): return _generic_links(soup, url, "h3 a, h2 a, article a")
 
 
-def fetch_scrape(source: dict, cutoff: datetime, pattern: re.Pattern,
+def fetch_scrape(source: dict, cutoff: datetime, pattern: re.Pattern, keywords: list[str],
                  use_dedup: bool, seen_check: Callable, seen_mark: Callable) -> list[dict]:
     results = []
     parser_fn = _PARSERS.get(source.get("parser", ""))
@@ -247,7 +232,8 @@ def fetch_scrape(source: dict, cutoff: datetime, pattern: re.Pattern,
                 continue
             if not matches(pattern, title):
                 continue
-            results.append(_build_row(source, title, article_url, None, ""))
+            matched_kws = find_matched_keywords(keywords, title)
+            results.append(_build_row(source, title, article_url, None, "", matched_kws))
             if use_dedup:
                 seen_mark(article_url)
 
@@ -298,9 +284,9 @@ def run(
     for i, source in enumerate(sources, start=1):
         try:
             if source["type"] == "rss":
-                rows = fetch_rss(source, cutoff, pattern, use_dedup, seen_check, seen_mark)
+                rows = fetch_rss(source, cutoff, pattern, keywords, use_dedup, seen_check, seen_mark)
             elif source["type"] == "scrape":
-                rows = fetch_scrape(source, cutoff, pattern, use_dedup, seen_check, seen_mark)
+                rows = fetch_scrape(source, cutoff, pattern, keywords, use_dedup, seen_check, seen_mark)
             else:
                 rows = []
             log.info("  → %d articles from %s", len(rows), source["name"])

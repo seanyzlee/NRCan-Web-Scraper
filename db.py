@@ -55,6 +55,7 @@ CREATE TABLE IF NOT EXISTS articles (
     published  TEXT,
     summary    TEXT,
     scraped_at TEXT NOT NULL,
+    keywords   TEXT DEFAULT '',
     UNIQUE(url_hash, run_id)
 );
 
@@ -67,6 +68,12 @@ CREATE INDEX IF NOT EXISTS idx_articles_cat    ON articles(category);
 def init_db() -> None:
     with _connect() as conn:
         conn.executescript(_SCHEMA)
+        # Migration: add keywords column to existing databases
+        try:
+            conn.execute("ALTER TABLE articles ADD COLUMN keywords TEXT DEFAULT ''")
+            conn.commit()
+        except sqlite3.OperationalError:
+            pass  # column already exists
 
 
 # ---------------------------------------------------------------------------
@@ -188,14 +195,15 @@ def insert_articles(run_id: str, rows: list[dict]) -> int:
             r.get("Published", ""),
             r.get("Summary", ""),
             r.get("Scraped At", _now()),
+            r.get("Keywords", ""),
         )
         for r in rows
     ]
     with _connect() as conn:
         conn.executemany(
             """INSERT OR IGNORE INTO articles
-               (run_id, url_hash, title, url, source, category, published, summary, scraped_at)
-               VALUES (?,?,?,?,?,?,?,?,?)""",
+               (run_id, url_hash, title, url, source, category, published, summary, scraped_at, keywords)
+               VALUES (?,?,?,?,?,?,?,?,?,?)""",
             records,
         )
         conn.commit()

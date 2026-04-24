@@ -129,6 +129,13 @@
             {% if a.summary %}
             <div class="summary-text">{{ a.summary[:160] }}{% if a.summary|length > 160 %}…{% endif %}</div>
             {% endif %}
+            {% if a.keywords %}
+            <div class="d-flex flex-wrap gap-1 mt-1">
+              {% for kw in a.keywords.split(', ') %}
+              <span class="kw-badge">{{ kw }}</span>
+              {% endfor %}
+            </div>
+            {% endif %}
           </td>
         </tr>
         {% endfor %}

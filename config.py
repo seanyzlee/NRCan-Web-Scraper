@@ -11,8 +11,8 @@ Edit KEYWORDS and SOURCES to customize what gets collected.
 KEYWORD_GROUPS = {
     "Energy Projects": [
         "oil sands", "oilsands", "pipeline", "LNG", "liquefied natural gas",
-        "offshore drilling", "upstream", "downstream", "midstream",
-        "energy project", "fossil fuel", "petroleum",
+        "natural gas", "offshore drilling", "midstream",
+        "energy project", "fossil fuel", "petroleum", "bitumen", "refinery",
     ],
     "Critical Minerals & Mining": [
         "critical mineral", "lithium", "cobalt", "nickel", "copper",
@@ -28,12 +28,11 @@ KEYWORD_GROUPS = {
     "Policy & Regulation": [
         "carbon tax", "emissions cap", "impact assessment", "Bill C-69",
         "energy regulation", "NRCan", "Natural Resources Canada",
-        "Canada Energy Regulator", "CER", "Alberta Energy", "Crown corporation",
+        "Canada Energy Regulator", "Alberta Energy",
     ],
     "Economic Reports": [
         "commodity prices", "energy prices", "oil price", "gas price",
-        "resource economy", "investment in Canada", "capital expenditure",
-        "upstream investment", "energy sector",
+        "resource economy", "upstream investment", "energy sector",
     ],
 }
 
@@ -177,49 +176,31 @@ SOURCES = [
     },
 
     # -----------------------------------------------------------------------
-    # CANADIAN BANKS
+    # CANADIAN BANKS  (Google News RSS — bank scrapers blocked or stale)
     # -----------------------------------------------------------------------
     {
-        "name": "RBC Economics",
-        "type": "scrape",
+        "name": "Google News — RBC Economics",
+        "type": "rss",
         "category": "Bank",
-        "urls": ["https://thoughtleadership.rbc.com/economics/"],
-        "parser": "rbc",
+        "urls": [
+            "https://news.google.com/rss/search?q=RBC+Economics+Canada+energy+oil+gas+mining&hl=en-CA&gl=CA&ceid=CA:en",
+        ],
     },
     {
-        "name": "TD Economics",
-        "type": "scrape",
+        "name": "Google News — TD Economics",
+        "type": "rss",
         "category": "Bank",
-        "urls": ["https://economics.td.com/"],
-        "parser": "td",
+        "urls": [
+            "https://news.google.com/rss/search?q=%22TD+Economics%22+Canada+energy+oil+gas+mining&hl=en-CA&gl=CA&ceid=CA:en",
+        ],
     },
     {
-        "name": "Scotiabank Economics",
-        "type": "scrape",
+        "name": "Google News — Canadian Bank Research",
+        "type": "rss",
         "category": "Bank",
-        "urls": ["https://www.scotiabank.com/ca/en/about/economics/economics-publications.html"],
-        "parser": "scotiabank",
-    },
-    {
-        "name": "BMO Economics",
-        "type": "scrape",
-        "category": "Bank",
-        "urls": ["https://economics.bmo.com/en/"],
-        "parser": "bmo",
-    },
-    {
-        "name": "CIBC Economics",
-        "type": "scrape",
-        "category": "Bank",
-        "urls": ["https://economics.cibc.com/en/home.html"],
-        "parser": "cibc",
-    },
-    {
-        "name": "National Bank Economics",
-        "type": "scrape",
-        "category": "Bank",
-        "urls": ["https://www.nbc.ca/en/corporate/economics.html"],
-        "parser": "nbc",
+        "urls": [
+            "https://news.google.com/rss/search?q=%28Scotiabank+OR+BMO+OR+CIBC%29+Economics+Canada+energy+oil+pipeline+LNG+mining&hl=en-CA&gl=CA&ceid=CA:en",
+        ],
     },
 
     # -----------------------------------------------------------------------
@@ -254,10 +235,9 @@ SOURCES = [
     },
     {
         "name": "IEA",
-        "type": "scrape",
+        "type": "rss",
         "category": "International Org",
-        "urls": ["https://www.iea.org/news"],
-        "parser": "iea",
+        "urls": ["https://www.iea.org/api/rss/news.rss"],
     },
 
     # -----------------------------------------------------------------------
@@ -286,51 +266,25 @@ SOURCES = [
     # RESEARCH & CONSULTING
     # -----------------------------------------------------------------------
     {
-        "name": "S&P Global",
-        "type": "scrape",
-        "category": "Research",
-        "urls": ["https://www.spglobal.com/commodityinsights/en/ci/research-analysis.html"],
-        "parser": "spglobal",
-    },
-    {
-        "name": "Wood Mackenzie",
-        "type": "scrape",
-        "category": "Research",
-        "urls": ["https://www.woodmac.com/latest-thinking/"],
-        "parser": "woodmac",
-    },
-    {
-        "name": "McKinsey",
-        "type": "scrape",
-        "category": "Research",
-        "urls": ["https://www.mckinsey.com/industries/electric-power-and-natural-gas/our-insights"],
-        "parser": "mckinsey",
-    },
-    {
         "name": "C.D. Howe Institute",
         "type": "rss",
         "category": "Research",
         "urls": ["https://www.cdhowe.org/rss.xml"],
     },
     {
-        "name": "Deloitte Canada",
-        "type": "scrape",
+        "name": "Google News — Energy Research",
+        "type": "rss",
         "category": "Research",
-        "urls": ["https://www2.deloitte.com/ca/en/pages/energy-and-resources/articles/energy-resources-insights.html"],
-        "parser": "deloitte",
+        "urls": [
+            "https://news.google.com/rss/search?q=%22S%26P+Global%22+OR+%22Wood+Mackenzie%22+OR+%22Goldman+Sachs%22+OR+%22Deloitte%22+Canada+energy+oil+gas+pipeline+LNG+mining&hl=en-CA&gl=CA&ceid=CA:en",
+        ],
     },
     {
-        "name": "Goldman Sachs",
-        "type": "scrape",
+        "name": "Google News — IEA & International Energy",
+        "type": "rss",
         "category": "Research",
-        "urls": ["https://www.goldmansachs.com/insights/"],
-        "parser": "goldman",
-    },
-    {
-        "name": "Signal49",
-        "type": "scrape",
-        "category": "Research",
-        "urls": ["https://www.signal49.com/news"],
-        "parser": "signal49",
+        "urls": [
+            "https://news.google.com/rss/search?q=%22International+Energy+Agency%22+OR+%22IEA%22+Canada+oil+gas+LNG+energy+transition&hl=en&gl=US&ceid=US:en",
+        ],
     },
 ]
