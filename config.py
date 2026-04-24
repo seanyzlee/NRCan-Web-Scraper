@@ -9,31 +9,36 @@ Edit KEYWORDS and SOURCES to customize what gets collected.
 # Group them by theme for readability; all are flattened into one list.
 # ---------------------------------------------------------------------------
 KEYWORD_GROUPS = {
-    "Energy Projects": [
+    "Oil & Gas Projects": [
         "oil sands", "oilsands", "pipeline", "LNG", "liquefied natural gas",
-        "offshore drilling", "upstream", "downstream", "midstream",
-        "energy project", "fossil fuel", "petroleum",
+        "offshore drilling", "natural gas", "crude oil", "bitumen",
+        "oil production", "gas production", "fracking", "hydraulic fracturing",
+        "petroleum", "shale gas", "shale oil", "oil terminal",
+        "Trans Mountain", "Coastal GasLink", "Enbridge", "TC Energy",
     ],
     "Critical Minerals & Mining": [
         "critical mineral", "lithium", "cobalt", "nickel", "copper",
         "rare earth", "mining project", "mine development", "potash",
-        "uranium", "gold mine", "silver mine",
+        "uranium", "gold mine", "silver mine", "mineral exploration",
+        "mineral rights", "ore deposit", "tailings", "Ring of Fire",
     ],
     "Clean Energy & Transition": [
         "clean energy", "energy transition", "net zero", "decarbonization",
         "carbon capture", "CCUS", "CCS", "hydrogen", "small modular reactor",
         "SMR", "nuclear energy", "offshore wind", "onshore wind",
         "solar farm", "battery storage", "green hydrogen",
+        "geothermal", "tidal energy", "pumped hydro",
     ],
     "Policy & Regulation": [
         "carbon tax", "emissions cap", "impact assessment", "Bill C-69",
         "energy regulation", "NRCan", "Natural Resources Canada",
-        "Canada Energy Regulator", "CER", "Alberta Energy", "Crown corporation",
+        "Canada Energy Regulator", "Alberta Energy", "emissions reduction",
+        "resource royalties", "mineral tenure",
     ],
-    "Economic Reports": [
-        "commodity prices", "energy prices", "oil price", "gas price",
-        "resource economy", "investment in Canada", "capital expenditure",
-        "upstream investment", "energy sector",
+    "Energy Economics": [
+        "oil price", "gas price", "energy price",
+        "upstream investment", "oilfield", "rig count",
+        "resource sector", "natural resource", "extraction industry",
     ],
 }
 

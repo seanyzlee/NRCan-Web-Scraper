@@ -131,7 +131,9 @@ def fetch_rss(source: dict, cutoff: datetime, pattern: re.Pattern,
 
             if not within_window(pub_dt, cutoff):
                 continue
-            if not matches(pattern, title, summary):
+            # Match title only — RSS summaries contain sidebar/related-article
+            # noise that causes false positives (e.g. unrelated crime stories).
+            if not matches(pattern, title):
                 continue
 
             results.append(_build_row(source, title, article_url, pub_dt, summary))
