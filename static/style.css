@@ -204,3 +204,84 @@ body {
 
 /* ── Utility ─────────────────────────────────────────────── */
 tr.hidden { display: none; }
+
+/* ── Navbar active link ──────────────────────────────────── */
+.nav-active {
+  border-bottom: 2px solid var(--gc-red);
+  padding-bottom: 2px;
+}
+
+/* ── Iran Monitor cards ──────────────────────────────────── */
+.iran-card {
+  background: #fff;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  box-shadow: 0 1px 4px rgba(0,0,0,.07);
+  overflow: hidden;
+}
+
+.iran-card-header {
+  background: #3d1a1a;
+  color: #fff;
+  font-weight: 600;
+  font-size: .87rem;
+  padding: .65rem 1.1rem;
+  display: flex;
+  align-items: center;
+}
+
+.iran-card-body {
+  padding: 0;
+}
+
+/* ── Price table ─────────────────────────────────────────── */
+.price-table {
+  font-size: .85rem;
+  margin-bottom: 0;
+}
+
+.price-table thead th {
+  background: #f8f9fa;
+  color: var(--gc-muted);
+  font-size: .75rem;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  border-bottom: 1px solid var(--border);
+  padding: .5rem .8rem;
+  font-weight: 600;
+}
+
+.price-table tbody td {
+  padding: .55rem .8rem;
+  border-bottom: 1px solid #f5f5f5;
+  vertical-align: middle;
+}
+
+.price-table tbody tr:last-child td { border-bottom: none; }
+.price-table tbody tr:hover { background: #fafafa; }
+
+/* ── Iran topic badges ───────────────────────────────────── */
+.topic-badge {
+  font-size: .68rem;
+  font-weight: 700;
+  padding: .15rem .45rem;
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  white-space: nowrap;
+}
+.topic-fuels---energy       { background: #fff3e0; color: #e65100; }
+.topic-minerals---commodities { background: #e8f5e9; color: #2e7d32; }
+.topic-conflict---security  { background: #fce4ec; color: #880e4f; }
+.topic-general              { background: #f3f3f3; color: #555; }
+
+/* ── Ticker pill ─────────────────────────────────────────── */
+.ticker-pill {
+  background: #e8f0fe;
+  color: #1a56db;
+  border-radius: 4px;
+  font-size: .75rem;
+  font-weight: 700;
+  padding: .15rem .45rem;
+  font-family: monospace;
+}

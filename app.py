@@ -12,17 +12,21 @@ import io
 import logging
 import os
 import threading
+import time
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
 from flask import (Flask, flash, jsonify, redirect, render_template,
                    request, send_file, url_for)
 
+from bs4 import BeautifulSoup
+
 import db
 import scraper
 import settings as smod
+import iran_config
 
 # ---------------------------------------------------------------------------
 # Paths  (DATA_DIR=/data on Render, cwd locally)
@@ -258,6 +262,196 @@ def download_run(run_id: str):
     filename = f"nrcan_articles_{run_id[:8]}.xlsx"
     return send_file(buf, as_attachment=True, download_name=filename,
                      mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+
+
+# ---------------------------------------------------------------------------
+# Iran Monitor — prices cache
+# ---------------------------------------------------------------------------
+
+_prices_cache: dict = {}
+_prices_lock  = threading.Lock()
+_PRICES_TTL   = 300   # seconds (5 min)
+
+# Serialises all yfinance calls — prevents concurrent SQLite cache writes
+# (which cause "database is locked") and avoids Yahoo rate-limiting from
+# parallel requests.
+_yf_lock = threading.Lock()
+
+# Iran news cache
+_iran_news_cache: dict = {"articles": [], "fetched_at": 0}
+_iran_news_lock  = threading.Lock()
+_IRAN_NEWS_TTL   = 1800  # 30 min
+
+
+@app.route("/iran")
+def iran():
+    return render_template("iran.html", iran_cfg=iran_config)
+
+
+@app.route("/api/iran/prices")
+def api_iran_prices():
+    """Return live commodity + stock prices via yfinance (cached 5 min).
+
+    Fetches each ticker sequentially inside _yf_lock to avoid:
+    - Yahoo Finance rate-limiting (caused by yf.download's internal thread pool)
+    - SQLite 'database is locked' on yfinance's timezone cache
+    """
+    now = time.time()
+    with _prices_lock:
+        if _prices_cache and now - _prices_cache.get("_ts", 0) < _PRICES_TTL:
+            return jsonify(_prices_cache)
+
+    try:
+        import yfinance as yf
+
+        all_meta = (
+            [(c, "commodity") for c in iran_config.COMMODITIES]
+            + [(s, "stock")     for s in iran_config.STOCKS]
+        )
+
+        raw: dict[str, tuple[float, float]] = {}
+
+        with _yf_lock:
+            for meta, _ in all_meta:
+                symbol = meta["symbol"]
+                try:
+                    fi    = yf.Ticker(symbol).fast_info
+                    price = float(fi.last_price     or 0)
+                    prev  = float(fi.previous_close or price)
+                    raw[symbol] = (price, prev)
+                except Exception as exc:
+                    log.warning("Price fetch skipped %s: %s", symbol, exc)
+                    raw[symbol] = (0.0, 0.0)
+                time.sleep(0.3)   # stay well under Yahoo's rate limit
+
+        def _fmt(meta: dict) -> dict:
+            symbol = meta["symbol"]
+            price, prev = raw.get(symbol, (0.0, 0.0))
+            change     = price - prev
+            change_pct = (change / prev * 100) if prev else 0.0
+            return {
+                "symbol":     symbol,
+                "label":      meta.get("label", symbol),
+                "price":      round(price, 2),
+                "change":     round(change, 2),
+                "change_pct": round(change_pct, 2),
+                "unit":       meta.get("unit", "USD"),
+                "exchange":   meta.get("exchange", ""),
+            }
+
+        result = {
+            "commodities": [_fmt(c) for c in iran_config.COMMODITIES],
+            "stocks":      [_fmt(s) for s in iran_config.STOCKS],
+            "updated_at":  datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC"),
+            "_ts":         now,
+        }
+
+        with _prices_lock:
+            _prices_cache.clear()
+            _prices_cache.update(result)
+
+        return jsonify(result)
+
+    except Exception as exc:
+        log.error("Iran prices fetch failed: %s", exc, exc_info=True)
+        return jsonify({"error": str(exc), "commodities": [], "stocks": []}), 500
+
+
+@app.route("/api/iran/news")
+def api_iran_news():
+    """Return Iran-filtered news (cached 30 min).
+
+    Each RSS source is fetched in parallel with an 8-second timeout so a
+    single slow/dead feed cannot block the entire response.
+    """
+    now = time.time()
+    with _iran_news_lock:
+        if _iran_news_cache["articles"] and \
+                now - _iran_news_cache["fetched_at"] < _IRAN_NEWS_TTL:
+            return jsonify({
+                "articles":   _iran_news_cache["articles"],
+                "cached":     True,
+                "fetched_at": _iran_news_cache["fetched_at"],
+            })
+
+    import feedparser
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+
+    pattern = scraper.build_pattern(iran_config.KEYWORDS)
+
+    _headers = {
+        "User-Agent": "Mozilla/5.0 (compatible; NRCanBot/1.0)",
+        "Accept": "application/rss+xml, application/xml, text/xml, */*",
+    }
+
+    def _classify_topics(title: str, summary: str) -> list[str]:
+        text = (title + " " + summary).lower()
+        matched = [
+            topic for topic, kws in iran_config.TOPIC_KEYWORDS.items()
+            if any(kw in text for kw in kws)
+        ]
+        return matched or ["General"]
+
+    def _fetch_source(source: dict) -> list[dict]:
+        pre_filtered = source.get("pre_filtered", False)
+        found = []
+        for url in source["urls"]:
+            try:
+                resp = scraper.SESSION.get(url, timeout=12, headers=_headers)
+                resp.raise_for_status()
+                feed = feedparser.parse(resp.content)
+            except Exception as exc:
+                log.warning("Iran RSS skip (%s): %s", url, exc)
+                continue
+
+            for entry in feed.entries:
+                title = entry.get("title", "").strip()
+                link  = entry.get("link",  "").strip()
+                if not title or not link:
+                    continue
+                # Broad feeds need a keyword match; pre-filtered feeds are already on-topic
+                if not pre_filtered and not scraper.matches(pattern, title):
+                    continue
+
+                pub_raw = entry.get("published_parsed") or entry.get("updated_parsed")
+                pub_dt  = scraper.parse_date(pub_raw)
+
+                summary_raw = entry.get("summary", "") or entry.get("description", "")
+                summary = BeautifulSoup(summary_raw, "lxml").get_text(" ", strip=True)[:300] \
+                          if summary_raw else ""
+
+                found.append({
+                    "source":    source["name"],
+                    "title":     title,
+                    "url":       link,
+                    "published": pub_dt.strftime("%Y-%m-%d") if pub_dt else "",
+                    "summary":   summary,
+                    "topics":    _classify_topics(title, summary),
+                })
+        return found
+
+    articles: list[dict] = []
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        futures = {pool.submit(_fetch_source, src): src for src in iran_config.SOURCES}
+        for future in as_completed(futures, timeout=25):
+            try:
+                articles.extend(future.result())
+            except Exception as exc:
+                log.warning("Iran news future error: %s", exc)
+
+    # Deduplicate by URL, sort newest first
+    seen_urls: set[str] = set()
+    unique = []
+    for a in sorted(articles, key=lambda x: x["published"], reverse=True):
+        if a["url"] not in seen_urls:
+            seen_urls.add(a["url"])
+            unique.append(a)
+
+    with _iran_news_lock:
+        _iran_news_cache["articles"]   = unique
+        _iran_news_cache["fetched_at"] = now
+
+    return jsonify({"articles": unique, "cached": False, "fetched_at": now})
 
 
 # ---------------------------------------------------------------------------

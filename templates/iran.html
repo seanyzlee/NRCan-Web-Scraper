@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+{% block title %}Iran Monitor — NRCan{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 pb-5">
+
+  <!-- ── Page header ───────────────────────────────────────── -->
+  <div class="d-flex flex-wrap align-items-center gap-3 py-3 border-bottom">
+    <div>
+      <h5 class="mb-0 fw-bold">Iran Conflict Monitor</h5>
+      <div class="text-muted small">
+        Latest news — conflict developments, fuel sector, lands &amp; minerals
+      </div>
+    </div>
+    <div class="ms-auto">
+      <button id="refresh-news-btn" class="btn btn-sm btn-outline-secondary">
+        <i class="bi bi-arrow-clockwise me-1"></i>Refresh News
+      </button>
+    </div>
+  </div>
+
+  <!-- ── News ──────────────────────────────────────────────── -->
+  <div class="iran-card mt-3">
+    <div class="iran-card-header">
+      <i class="bi bi-rss me-2"></i>Latest News
+      <span id="news-count" class="badge bg-secondary ms-2">—</span>
+      <span id="news-cached" class="ms-2 text-warning small fw-normal d-none">
+        <i class="bi bi-clock me-1"></i>cached
+      </span>
+    </div>
+    <div class="iran-card-body pb-0">
+
+      <!-- Filters -->
+      <div class="d-flex flex-wrap align-items-center gap-2 p-3 border-bottom">
+
+        <!-- Lookback -->
+        <div class="d-flex align-items-center gap-1 me-1">
+          <span class="text-muted small fw-semibold text-nowrap">Show:</span>
+          <div class="btn-group btn-group-sm" role="group" aria-label="Lookback period">
+            <input type="radio" class="btn-check" name="lookback" id="lb7"
+                   value="7" autocomplete="off">
+            <label class="btn btn-outline-secondary" for="lb7">7 days</label>
+
+            <input type="radio" class="btn-check" name="lookback" id="lb14"
+                   value="14" autocomplete="off" checked>
+            <label class="btn btn-outline-secondary" for="lb14">14 days</label>
+
+            <input type="radio" class="btn-check" name="lookback" id="lb30"
+                   value="30" autocomplete="off">
+            <label class="btn btn-outline-secondary" for="lb30">30 days</label>
+          </div>
+        </div>
+
+        <div class="vr mx-1 d-none d-md-block"></div>
+
+        <!-- Search -->
+        <div class="input-group input-group-sm" style="max-width:240px;">
+          <span class="input-group-text"><i class="bi bi-search"></i></span>
+          <input id="news-search" type="search" class="form-control"
+                 placeholder="Search titles…">
+        </div>
+
+        <!-- Topic -->
+        <select id="topic-filter" class="form-select form-select-sm"
+                style="max-width:200px;">
+          <option value="">All topics</option>
+          {% for topic in iran_cfg.TOPIC_KEYWORDS %}
+          <option value="{{ topic }}">{{ topic }}</option>
+          {% endfor %}
+        </select>
+
+        <!-- Source -->
+        <select id="news-source-filter" class="form-select form-select-sm"
+                style="max-width:210px;">
+          <option value="">All sources</option>
+          {% for src in iran_cfg.SOURCES %}
+          <option value="{{ src.name }}">{{ src.name }}</option>
+          {% endfor %}
+        </select>
+
+        <button id="clear-filters-btn" class="btn btn-sm btn-outline-secondary">
+          <i class="bi bi-x-circle me-1"></i>Clear
+        </button>
+      </div>
+
+      <!-- Table -->
+      <div class="table-responsive">
+        <table class="table table-hover align-middle article-table mb-0">
+          <thead class="table-header">
+            <tr>
+              <th style="width:95px;">Date</th>
+              <th style="width:160px;">Source</th>
+              <th>Title &amp; Summary</th>
+            </tr>
+          </thead>
+          <tbody id="news-tbody">
+            <tr><td colspan="3" class="text-center text-muted py-4">
+              <span class="spinner-border spinner-border-sm me-2"></span>Fetching articles…
+            </td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div id="news-no-results" class="d-none text-center text-muted py-4">
+        <i class="bi bi-search me-1"></i>No articles match your filters.
+      </div>
+
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='iran.js') }}"></script>
+{% endblock %}

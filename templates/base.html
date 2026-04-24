@@ -18,7 +18,16 @@
       NRCan Article Monitor
     </a>
     <div class="ms-auto d-flex align-items-center gap-3">
-      <a href="{{ url_for('settings_page') }}" class="nav-link text-white">
+      <a href="{{ url_for('index') }}"
+         class="nav-link text-white {% if request.endpoint == 'index' %}nav-active{% endif %}">
+        <i class="bi bi-newspaper me-1"></i>Articles
+      </a>
+      <a href="{{ url_for('iran') }}"
+         class="nav-link text-white {% if request.endpoint == 'iran' %}nav-active{% endif %}">
+        <i class="bi bi-globe-americas me-1"></i>Iran Monitor
+      </a>
+      <a href="{{ url_for('settings_page') }}"
+         class="nav-link text-white {% if request.endpoint == 'settings_page' %}nav-active{% endif %}">
         <i class="bi bi-gear-fill me-1"></i>Settings
       </a>
     </div>
