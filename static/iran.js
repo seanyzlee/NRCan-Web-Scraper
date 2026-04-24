@@ -51,7 +51,7 @@ async function loadNews(forceRefresh = false) {
   }
 
   try {
-    const url  = '/api/iran/news' + (forceRefresh ? '?t=' + Date.now() : '');
+    const url  = '/api/iran/news' + (forceRefresh ? '?force=1' : '');
     const resp = await fetch(url);
     if (!resp.ok) throw new Error(`Server error ${resp.status}`);
     const data = await resp.json();

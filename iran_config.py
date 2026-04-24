@@ -94,12 +94,12 @@ SOURCES = [
 
     # ── Canadian sources ─────────────────────────────────────────────────
     {
-        "name": "CBC News",
+        "name": "Google News — Iran CBC/CTV",
         "urls": [
-            "https://www.cbc.ca/cmlink/rss-world",
-            "https://www.cbc.ca/cmlink/rss-topstories",
+            "https://news.google.com/rss/search"
+            "?q=Iran+%28CBC+OR+CTV%29&hl=en-CA&gl=CA&ceid=CA:en"
         ],
-        "pre_filtered": False,
+        "pre_filtered": True,
     },
     {
         "name": "Globe and Mail",
@@ -131,9 +131,12 @@ SOURCES = [
         "pre_filtered": False,
     },
     {
-        "name": "Times of Israel",
-        "urls": ["https://www.timesofisrael.com/feed/"],
-        "pre_filtered": False,
+        "name": "Google News — Israel/Iran",
+        "urls": [
+            "https://news.google.com/rss/search"
+            "?q=Iran+Israel+attack+war+nuclear&hl=en&gl=US&ceid=US:en"
+        ],
+        "pre_filtered": True,
     },
     {
         "name": "Financial Times",

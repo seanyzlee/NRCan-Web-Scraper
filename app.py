@@ -364,9 +364,10 @@ def api_iran_news():
     Each RSS source is fetched in parallel with an 8-second timeout so a
     single slow/dead feed cannot block the entire response.
     """
-    now = time.time()
+    now   = time.time()
+    force = request.args.get("force") == "1"
     with _iran_news_lock:
-        if _iran_news_cache["articles"] and \
+        if not force and _iran_news_cache["articles"] and \
                 now - _iran_news_cache["fetched_at"] < _IRAN_NEWS_TTL:
             return jsonify({
                 "articles":   _iran_news_cache["articles"],
@@ -392,52 +393,64 @@ def api_iran_news():
         ]
         return matched or ["General"]
 
-    def _fetch_source(source: dict) -> list[dict]:
-        pre_filtered = source.get("pre_filtered", False)
+    def _fetch_url(source_name: str, url: str, pre_filtered: bool) -> list[dict]:
+        """Fetch and parse one RSS URL. One future per URL keeps timeouts predictable."""
         found = []
-        for url in source["urls"]:
-            try:
-                resp = scraper.SESSION.get(url, timeout=12, headers=_headers)
-                resp.raise_for_status()
-                feed = feedparser.parse(resp.content)
-            except Exception as exc:
-                log.warning("Iran RSS skip (%s): %s", url, exc)
+        try:
+            resp = scraper.SESSION.get(url, timeout=10, headers=_headers)
+            resp.raise_for_status()
+            feed = feedparser.parse(resp.content)
+        except Exception as exc:
+            log.warning("Iran RSS skip (%s): %s", url, exc)
+            return found
+
+        for entry in feed.entries:
+            title = entry.get("title", "").strip()
+            link  = entry.get("link",  "").strip()
+            if not title or not link:
+                continue
+            if not pre_filtered and not scraper.matches(pattern, title):
                 continue
 
-            for entry in feed.entries:
-                title = entry.get("title", "").strip()
-                link  = entry.get("link",  "").strip()
-                if not title or not link:
-                    continue
-                # Broad feeds need a keyword match; pre-filtered feeds are already on-topic
-                if not pre_filtered and not scraper.matches(pattern, title):
-                    continue
+            pub_raw = entry.get("published_parsed") or entry.get("updated_parsed")
+            pub_dt  = scraper.parse_date(pub_raw)
 
-                pub_raw = entry.get("published_parsed") or entry.get("updated_parsed")
-                pub_dt  = scraper.parse_date(pub_raw)
+            summary_raw = entry.get("summary", "") or entry.get("description", "")
+            summary = BeautifulSoup(summary_raw, "lxml").get_text(" ", strip=True)[:300] \
+                      if summary_raw else ""
 
-                summary_raw = entry.get("summary", "") or entry.get("description", "")
-                summary = BeautifulSoup(summary_raw, "lxml").get_text(" ", strip=True)[:300] \
-                          if summary_raw else ""
-
-                found.append({
-                    "source":    source["name"],
-                    "title":     title,
-                    "url":       link,
-                    "published": pub_dt.strftime("%Y-%m-%d") if pub_dt else "",
-                    "summary":   summary,
-                    "topics":    _classify_topics(title, summary),
-                })
+            found.append({
+                "source":    source_name,
+                "title":     title,
+                "url":       link,
+                "published": pub_dt.strftime("%Y-%m-%d") if pub_dt else "",
+                "summary":   summary,
+                "topics":    _classify_topics(title, summary),
+            })
         return found
 
+    # One future per URL so a slow source never blocks others beyond its own timeout
     articles: list[dict] = []
-    with ThreadPoolExecutor(max_workers=4) as pool:
-        futures = {pool.submit(_fetch_source, src): src for src in iran_config.SOURCES}
-        for future in as_completed(futures, timeout=25):
-            try:
-                articles.extend(future.result())
-            except Exception as exc:
-                log.warning("Iran news future error: %s", exc)
+    with ThreadPoolExecutor(max_workers=6) as pool:
+        futures = {
+            pool.submit(_fetch_url, src["name"], url, src.get("pre_filtered", False)): url
+            for src in iran_config.SOURCES
+            for url in src["urls"]
+        }
+        try:
+            for future in as_completed(futures, timeout=30):
+                try:
+                    articles.extend(future.result())
+                except Exception as exc:
+                    log.warning("Iran news future error: %s", exc)
+        except TimeoutError:
+            log.warning("Iran news: some URLs did not complete within 30s — returning partial results")
+            for future in futures:
+                if future.done():
+                    try:
+                        articles.extend(future.result())
+                    except Exception:
+                        pass
 
     # Deduplicate by URL, sort newest first
     seen_urls: set[str] = set()
