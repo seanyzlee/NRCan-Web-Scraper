@@ -1,9 +1,11 @@
 """
 app.py — Flask web application for the NRCan Article Scraper.
 
-Run:
-    python app.py
-    # then open http://localhost:5000
+Run locally:
+    python app.py          → http://localhost:5000
+
+Production (gunicorn):
+    gunicorn app:app --workers 1 --threads 4 --bind 0.0.0.0:$PORT --timeout 120
 """
 
 import io
@@ -23,29 +25,42 @@ import scraper
 import settings as smod
 
 # ---------------------------------------------------------------------------
-# App setup
+# Paths  (DATA_DIR=/data on Render, cwd locally)
 # ---------------------------------------------------------------------------
-
 _DATA_DIR = Path(os.environ.get("DATA_DIR", "."))
+_DATA_DIR.mkdir(parents=True, exist_ok=True)
+(_DATA_DIR / "output").mkdir(exist_ok=True)
 
+# ---------------------------------------------------------------------------
+# App
+# ---------------------------------------------------------------------------
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "nrcan-scraper-dev-key-change-in-prod")
 
-# Logging
-handler = RotatingFileHandler("scraper.log", maxBytes=5_000_000, backupCount=3,
-                               encoding="utf-8")
-handler.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(message)s"))
-logging.getLogger().addHandler(handler)
+# ---------------------------------------------------------------------------
+# Logging  (file goes to DATA_DIR so it survives on the persistent disk)
+# ---------------------------------------------------------------------------
+_log_file = _DATA_DIR / "scraper.log"
+_file_handler = RotatingFileHandler(str(_log_file), maxBytes=5_000_000,
+                                    backupCount=3, encoding="utf-8")
+_file_handler.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(message)s"))
+logging.getLogger().addHandler(_file_handler)
+logging.getLogger().addHandler(logging.StreamHandler())   # also print to stdout
 logging.getLogger().setLevel(logging.INFO)
 log = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
-# Scrape job state (module-level, guarded by a lock)
+# DB init — runs at import time so gunicorn picks it up automatically
 # ---------------------------------------------------------------------------
+db.init_db()
+log.info("DB initialised at %s", db.DB_PATH)
 
-_lock         = threading.Lock()
-_running      = False
-_current_run  = None   # run_id of the in-progress scrape
+# ---------------------------------------------------------------------------
+# Scrape job state (module-level, single-worker gunicorn only)
+# ---------------------------------------------------------------------------
+_lock        = threading.Lock()
+_running     = False
+_current_run = None
 
 
 def _is_running() -> bool:
@@ -68,7 +83,7 @@ def _stop_running() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Background thread
+# Background scrape thread
 # ---------------------------------------------------------------------------
 
 def _scrape_thread(run_id: str, use_dedup: bool) -> None:
@@ -191,11 +206,7 @@ def api_articles():
         return jsonify({"run_id": None, "articles": [], "total": 0})
 
     articles = db.get_articles(run_id, category=category, source=source, q=q)
-    return jsonify({
-        "run_id":   run_id,
-        "articles": articles,
-        "total":    len(articles),
-    })
+    return jsonify({"run_id": run_id, "articles": articles, "total": len(articles)})
 
 
 @app.route("/api/runs")
@@ -205,7 +216,7 @@ def api_runs():
 
 @app.route("/download/<run_id>")
 def download_run(run_id: str):
-    """Generate and stream an Excel file for a completed run."""
+    """Stream an Excel file for a completed run."""
     import pandas as pd
     from openpyxl.styles import Alignment, Font, PatternFill
 
@@ -214,12 +225,15 @@ def download_run(run_id: str):
         flash("No articles found for this run.", "warning")
         return redirect(url_for("index"))
 
-    df = pd.DataFrame(rows, columns=["source", "category", "title", "url",
-                                      "published", "summary", "scraped_at"])
-    df.columns = ["Source", "Category", "Title", "URL",
-                  "Published", "Summary", "Scraped At"]
-    df = df.sort_values(["Category", "Source", "Published"],
-                        ascending=[True, True, False])
+    # rows are plain dicts; rename keys for the spreadsheet header
+    rename = {
+        "source": "Source", "category": "Category", "title": "Title",
+        "url": "URL", "published": "Published", "summary": "Summary",
+        "scraped_at": "Scraped At",
+    }
+    df = pd.DataFrame(rows).rename(columns=rename)
+    df = df[["Source", "Category", "Title", "URL", "Published", "Summary", "Scraped At"]]
+    df = df.sort_values(["Category", "Source", "Published"], ascending=[True, True, False])
 
     buf = io.BytesIO()
     with pd.ExcelWriter(buf, engine="openpyxl") as writer:
@@ -228,7 +242,7 @@ def download_run(run_id: str):
         for col, w in zip("ABCDEFG", [22, 18, 60, 50, 12, 80, 20]):
             ws.column_dimensions[col].width = w
         ws.freeze_panes = "A2"
-        fill = PatternFill("solid", fgColor="1F4E79")
+        fill     = PatternFill("solid", fgColor="1F4E79")
         hdr_font = Font(bold=True, color="FFFFFF")
         for cell in ws[1]:
             cell.font      = hdr_font
@@ -247,17 +261,9 @@ def download_run(run_id: str):
 
 
 # ---------------------------------------------------------------------------
-# Init & run
+# Local dev entry point
 # ---------------------------------------------------------------------------
 
-def create_app():
-    _DATA_DIR.mkdir(parents=True, exist_ok=True)
-    (_DATA_DIR / "output").mkdir(exist_ok=True)
-    db.init_db()
-    return app
-
-
 if __name__ == "__main__":
-    create_app()
-    print("NRCan Article Scraper running at http://localhost:5000")
+    print(f"NRCan Article Scraper → http://localhost:5000  (data: {_DATA_DIR})")
     app.run(debug=False, host="0.0.0.0", port=5000)
